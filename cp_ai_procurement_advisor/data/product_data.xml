@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Ordered for request items that have no product of their own: the specification is in the line description. -->
+        <record id="product_procurement_item" model="product.product">
+            <field name="name">Procurement Item</field>
+            <field name="type">consu</field>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_goods"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="default_code">PROC-ITEM</field>
+        </record>
+    </data>
+</odoo>

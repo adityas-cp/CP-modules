@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_procurement_advisor_root" name="AI Procurement"
+              parent="purchase.menu_purchase_root" sequence="2"/>
+    <menuitem id="menu_procurement_request" name="Requests"
+              parent="menu_procurement_advisor_root" action="action_procurement_request" sequence="10"/>
+</odoo>

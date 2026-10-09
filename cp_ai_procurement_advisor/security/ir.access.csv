@@ -1,0 +1,9 @@
+id,name,model_id,group_id/id,operation,domain
+access_procurement_request_user,procurement.request user,procurement.request,purchase.group_purchase_user,crud,
+procurement_request_comp_rule,Procurement Request multi-company,procurement.request,,crud,"[('company_id', 'in', company_ids)]"
+access_procurement_request_line_user,procurement.request.line user,procurement.request.line,purchase.group_purchase_user,crud,
+procurement_request_line_comp_rule,Procurement Request Line multi-company,procurement.request.line,,crud,"[('company_id', 'in', company_ids)]"
+access_procurement_request_line_attribute_user,procurement.request.line.attribute user,procurement.request.line.attribute,purchase.group_purchase_user,crud,
+access_procurement_request_requirement_user,procurement.request.requirement user,procurement.request.requirement,purchase.group_purchase_user,crud,
+access_procurement_quote_compliance_user,procurement.quote.compliance user,procurement.quote.compliance,purchase.group_purchase_user,crud,
+access_procurement_send_wizard_user,procurement.send.wizard user,procurement.send.wizard,purchase.group_purchase_user,crud,

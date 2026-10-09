@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_procurement_spec" model="ir.actions.report">
+        <field name="name">Specification</field>
+        <field name="model">procurement.request</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">cp_ai_procurement_advisor.report_procurement_spec</field>
+        <field name="print_report_name">'Specification - %s' % object.name</field>
+        <field name="binding_model_id" ref="model_procurement_request"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Same document, attached to the RFQ email of each vendor -->
+    <record id="action_report_procurement_rfq_spec" model="ir.actions.report">
+        <field name="name">Specification for Vendor</field>
+        <field name="model">purchase.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">cp_ai_procurement_advisor.report_procurement_rfq_spec</field>
+        <field name="print_report_name">'Specification - %s' % object.name</field>
+    </record>
+
+    <!-- Never render the budget or target prices here: this document goes to vendors. -->
+    <template id="report_procurement_spec_document">
+        <t t-set="layout_document_title">
+            <span>Specification <span t-field="spec_request.name"/></span>
+        </t>
+        <t t-if="rfq" t-set="address">
+            <div t-field="rfq.partner_id"
+                 t-options='{"widget": "contact", "fields": ["address", "name", "phone", "vat"], "no_marker": True, "phone_icons": True}'/>
+        </t>
+        <t t-call="web.external_layout"
+           address="address"
+           layout_document_title="layout_document_title">
+            <div class="page">
+                <div class="oe_structure"/>
+                <div t-if="not spec_request.approval_date" class="alert alert-warning text-center py-1 mb-3">
+                    <strong>DRAFT</strong> - this specification is not approved yet.
+                </div>
+                <h4 class="mb-3" t-field="spec_request.title"/>
+
+                <div id="informations" class="row mb-4">
+                    <div t-if="rfq" class="col-auto me-4 mb-2">
+                        <strong>Our reference</strong>
+                        <div t-field="rfq.name"/>
+                    </div>
+                    <div t-if="spec_request.approval_date" class="col-auto me-4 mb-2">
+                        <strong>Issued on</strong>
+                        <div t-field="spec_request.approval_date"/>
+                    </div>
+                    <div t-if="spec_request.deadline" class="col-auto me-4 mb-2">
+                        <strong>Needed by</strong>
+                        <div t-field="spec_request.deadline"/>
+                    </div>
+                    <div t-if="spec_request.delivery_location" class="col-auto me-4 mb-2">
+                        <strong>Delivery location</strong>
+                        <div t-field="spec_request.delivery_location"/>
+                    </div>
+                    <div t-if="spec_request.user_id" class="col-auto mb-2">
+                        <strong>Contact</strong>
+                        <div t-field="spec_request.user_id.name"/>
+                        <div t-if="spec_request.user_id.email" t-field="spec_request.user_id.email"/>
+                    </div>
+                </div>
+
+                <div t-if="spec_request.need_summary" class="mb-4">
+                    <h5 class="mb-2">Context</h5>
+                    <div t-field="spec_request.need_summary"/>
+                </div>
+
+                <h5 class="mb-2">Items overview</h5>
+                <table class="table table-sm o_main_table table-borderless mb-4">
+                    <thead style="display: table-row-group">
+                        <tr>
+                            <th class="text-start" style="width: 6%;"><strong>#</strong></th>
+                            <th class="text-start"><strong>Item</strong></th>
+                            <th class="text-end" style="width: 22%;"><strong>Quantity</strong></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="spec_request.line_ids" t-as="line">
+                            <td><span t-out="line_index + 1"/></td>
+                            <td><span t-field="line.name"/></td>
+                            <td class="text-end"><span t-field="line.quantity_label"/></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="mb-2" style="page-break-after: avoid;">Item specifications</h5>
+                <t t-foreach="spec_request.line_ids" t-as="line">
+                    <div class="mb-4">
+                        <div style="page-break-after: avoid;">
+                            <span class="float-end text-muted" t-field="line.quantity_label"/>
+                            <strong><span t-out="line_index + 1"/>. <span t-field="line.name"/></strong>
+                        </div>
+                        <p t-if="line.description" class="text-muted mb-2" t-field="line.description"/>
+                        <table t-if="line.attribute_ids" class="table table-sm o_main_table table-borderless">
+                            <thead style="display: table-row-group">
+                                <tr>
+                                    <th class="text-start" style="width: 30%;"><strong>Characteristic</strong></th>
+                                    <th class="text-start"><strong>Required value</strong></th>
+                                    <th class="text-center" style="width: 14%;"><strong>Mandatory</strong></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="line.attribute_ids" t-as="attribute" style="page-break-inside: avoid;">
+                                    <td><span t-field="attribute.name"/></td>
+                                    <td>
+                                        <span t-field="attribute.value"/>
+                                        <span t-if="attribute.unit" t-field="attribute.unit"/>
+                                    </td>
+                                    <td class="text-center">
+                                        <t t-if="attribute.mandatory">Yes</t>
+                                        <t t-else=""><span class="text-muted">Preferred</span></t>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+
+                <div t-if="spec_request.requirement_ids" class="mb-4" style="page-break-inside: avoid;">
+                    <h5 class="mb-2" style="page-break-after: avoid;">General requirements</h5>
+                    <table class="table table-sm o_main_table table-borderless">
+                        <thead style="display: table-row-group">
+                            <tr>
+                                <th class="text-start" style="width: 30%;"><strong>Requirement</strong></th>
+                                <th class="text-start"><strong>Details</strong></th>
+                                <th class="text-center" style="width: 14%;"><strong>Mandatory</strong></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="spec_request.requirement_ids" t-as="requirement" style="page-break-inside: avoid;">
+                                <td><span t-field="requirement.name"/></td>
+                                <td><span t-field="requirement.description"/></td>
+                                <td class="text-center">
+                                    <t t-if="requirement.mandatory">Yes</t>
+                                    <t t-else=""><span class="text-muted">Preferred</span></t>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div t-if="rfq" class="mt-4" style="page-break-inside: avoid;">
+                    <h5 class="mb-2">How to answer</h5>
+                    <p class="mb-1">
+                        Please submit your unit prices, delivery and installation costs, lead time and warranty and,
+                        for each characteristic, whether you meet it or offer an alternative, on our quote form:
+                    </p>
+                    <p><a t-att-href="rfq.get_procurement_quote_url()" t-out="rfq.get_procurement_quote_url()"/></p>
+                </div>
+                <div class="oe_structure"/>
+            </div>
+        </t>
+    </template>
+
+    <template id="report_procurement_spec">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="spec_request">
+                <t t-set="o" t-value="spec_request"/>
+                <t t-set="rfq" t-value="False"/>
+                <t t-call="cp_ai_procurement_advisor.report_procurement_spec_document"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_procurement_rfq_spec">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="rfq">
+                <t t-set="o" t-value="rfq.with_context(lang=rfq.partner_id.lang)"/>
+                <t t-set="spec_request" t-value="rfq.procurement_request_id.with_context(lang=rfq.partner_id.lang)"/>
+                <t t-call="cp_ai_procurement_advisor.report_procurement_spec_document"/>
+            </t>
+        </t>
+    </template>
+</odoo>

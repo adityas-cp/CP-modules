@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="procurement_request_line_view_form" model="ir.ui.view">
+        <field name="name">procurement.request.line.form</field>
+        <field name="model">procurement.request.line</field>
+        <field name="arch" type="xml">
+            <form string="Item">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h2><field name="name" placeholder="e.g. 14-inch business laptop"/></h2>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="quantity"/>
+                            <field name="uom_id" options="{'no_create': True}"/>
+                            <field name="product_id" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="target_unit_price"/>
+                            <field name="target_subtotal"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Intended use, context..."/>
+                    <separator string="Specification"/>
+                    <field name="attribute_ids">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="value"/>
+                            <field name="unit"/>
+                            <field name="mandatory"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="procurement_request_view_form" model="ir.ui.view">
+        <field name="name">procurement.request.form</field>
+        <field name="model">procurement.request</field>
+        <field name="arch" type="xml">
+            <form string="Procurement Request">
+                <header>
+                    <button name="action_start_ai_chat" type="object" string="Start with AI" icon="fa-magic"
+                            class="btn-primary" invisible="state not in ('draft', 'review')"/>
+                    <button name="action_submit_review" type="object" string="Review Items"
+                            invisible="state != 'draft' or not line_ids"/>
+                    <button name="action_approve" type="object" string="Approve Specification"
+                            class="btn-primary" invisible="state != 'review'"/>
+                    <button name="action_open_send_wizard" type="object" string="Send to Vendors"
+                            class="btn-primary" invisible="state != 'approved'"/>
+                    <button name="action_open_send_wizard" type="object" string="Invite More Vendors"
+                            invisible="state != 'sent'"/>
+                    <button name="action_view_ranking" type="object" string="Compare Quotes"
+                            class="btn-primary" invisible="state != 'sent' or not quote_count"/>
+                    <button name="action_print_spec" type="object" string="Print Specification"
+                            invisible="not line_ids"/>
+                    <button name="action_reset_to_draft" type="object" string="Back to Draft"
+                            invisible="state not in ('review', 'approved', 'cancel')"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state in ('done', 'cancel')"
+                            confirm="Cancel this request and every open quotation linked to it?"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,review,approved,sent,done"/>
+                </header>
+                <div class="alert alert-warning mb-0" role="alert" invisible="not budget_warning">
+                    <field name="budget_warning" readonly="1"/>
+                </div>
+                <div class="alert alert-info mb-0" role="alert" invisible="not completeness_issues">
+                    <strong>Still missing before approval:</strong>
+                    <field name="completeness_issues" readonly="1"/>
+                </div>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_rfqs" type="object" class="oe_stat_button" icon="fa-file-text-o"
+                                invisible="not rfq_count">
+                            <field name="rfq_count" widget="statinfo" string="Quotations"/>
+                        </button>
+                        <button name="action_view_ranking" type="object" class="oe_stat_button" icon="fa-trophy"
+                                invisible="not quote_count">
+                            <field name="quote_count" widget="statinfo" string="Quotes Received"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                        <h3>
+                            <field name="title" placeholder="What do you need? e.g. Laptops for 25 new hires"
+                                   readonly="state not in ('draft', 'review')"/>
+                        </h3>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="product_category_id" readonly="state not in ('draft', 'review')"/>
+                            <field name="deadline" readonly="state not in ('draft', 'review')"/>
+                            <field name="approval_date" invisible="not approval_date"/>
+                            <field name="delivery_location" readonly="state not in ('draft', 'review')"/>
+                            <field name="user_id" widget="many2one_avatar_user"/>
+                        </group>
+                        <group>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="budget" readonly="state in ('done', 'cancel')"/>
+                            <field name="estimated_total"/>
+                            <field name="budget_status" widget="badge"
+                                   decoration-success="budget_status == 'ok'"
+                                   decoration-warning="budget_status == 'tight'"
+                                   decoration-danger="budget_status == 'over'"/>
+                            <field name="best_rfq_id" invisible="not best_rfq_id"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="rfq_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Items" name="items">
+                            <field name="line_ids" readonly="state not in ('draft', 'review')"
+                                   context="{'default_request_id': id}">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="spec_summary" string="Specification"/>
+                                    <field name="quantity"/>
+                                    <field name="uom_id" groups="uom.group_uom"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="target_unit_price"/>
+                                    <field name="target_subtotal" sum="Estimated Cost"/>
+                                    <field name="product_id" optional="hide"/>
+                                </list>
+                            </field>
+                            <button name="action_create_products" type="object" string="Create Products for Items"
+                                    class="btn-link" icon="fa-cubes" groups="product.group_product_manager"
+                                    invisible="state not in ('draft', 'review', 'approved') or not line_ids"
+                                    help="Items without a product are ordered with the generic Procurement Item. Create real products to keep them in your catalog."/>
+                        </page>
+                        <page string="General Requirements" name="requirements">
+                            <field name="requirement_ids" readonly="state not in ('draft', 'review')">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="description"/>
+                                    <field name="mandatory"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Context" name="context">
+                            <field name="need_summary" placeholder="What is bought, for whom, for which use..."
+                                   readonly="state not in ('draft', 'review')"/>
+                        </page>
+                        <page string="Quote Scoring" name="scoring">
+                            <group>
+                                <group string="What matters most">
+                                    <field name="scoring_preset" widget="radio"/>
+                                    <field name="strict_deadline"/>
+                                </group>
+                                <group string="Weights">
+                                    <field name="weight_price" readonly="scoring_preset != 'custom'"/>
+                                    <field name="weight_delivery" readonly="scoring_preset != 'custom'"/>
+                                    <field name="weight_spec" readonly="scoring_preset != 'custom'"/>
+                                    <field name="weight_performance" readonly="scoring_preset != 'custom'"/>
+                                    <field name="weight_warranty" readonly="scoring_preset != 'custom'"/>
+                                </group>
+                            </group>
+                            <p class="text-muted">
+                                Each quote gets a score out of 100 per factor, computed by Odoo: price (total with delivery
+                                and installation, cheapest = 100), delivery (on time = 100), spec match (vendor answers on each
+                                characteristic), past performance (on-time delivery rate) and warranty (longest = 100).
+                                The total is the weighted average.
+                            </p>
+                        </page>
+                        <page string="Quotations" name="quotations" invisible="not rfq_count">
+                            <field name="rfq_ids" readonly="1">
+                                <list default_order="procurement_rank" decoration-muted="state == 'cancel'">
+                                    <field name="procurement_rank" string="#"/>
+                                    <field name="partner_id"/>
+                                    <field name="name"/>
+                                    <field name="quote_submitted"/>
+                                    <field name="company_currency_id" column_invisible="1"/>
+                                    <field name="procurement_total_cc"/>
+                                    <field name="procurement_delivery_date"/>
+                                    <field name="procurement_score" widget="progressbar"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="procurement_request_view_list" model="ir.ui.view">
+        <field name="name">procurement.request.list</field>
+        <field name="model">procurement.request</field>
+        <field name="arch" type="xml">
+            <list string="Procurement Requests">
+                <field name="name"/>
+                <field name="title"/>
+                <field name="product_category_id" optional="show"/>
+                <field name="user_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="deadline"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="budget" optional="show"/>
+                <field name="estimated_total" optional="hide"/>
+                <field name="rfq_count" string="RFQs" optional="show"/>
+                <field name="quote_count" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="state" widget="badge"
+                       decoration-info="state in ('draft', 'review')"
+                       decoration-warning="state in ('approved', 'sent')"
+                       decoration-success="state == 'done'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="procurement_request_view_search" model="ir.ui.view">
+        <field name="name">procurement.request.search</field>
+        <field name="model">procurement.request</field>
+        <field name="arch" type="xml">
+            <search string="Procurement Requests">
+                <field name="name" filter_domain="['|', ('name', 'ilike', self), ('title', 'ilike', self)]"/>
+                <field name="product_category_id"/>
+                <field name="user_id"/>
+                <field name="vendor_ids"/>
+                <filter string="My Requests" name="my_requests" domain="[('user_id', '=', uid)]"/>
+                <separator/>
+                <filter string="Defining Needs" name="to_define" domain="[('state', 'in', ('draft', 'review'))]"/>
+                <filter string="Waiting for Quotes" name="sent" domain="[('state', '=', 'sent')]"/>
+                <filter string="Ordered" name="done" domain="[('state', '=', 'done')]"/>
+                <group>
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Buyer" name="group_user" context="{'group_by': 'user_id'}"/>
+                    <filter string="Category" name="group_category" context="{'group_by': 'product_category_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_procurement_request" model="ir.actions.act_window">
+        <field name="name">Procurement Requests</field>
+        <field name="res_model">procurement.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="procurement_request_view_search"/>
+        <field name="context">{'search_default_my_requests': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Describe what you need to buy
+            </p>
+            <p>
+                Write the need in a few words, then click "Start with AI": the assistant asks the questions that
+                matter for that product, writes the specification and gets it ready to send to your vendors.
+            </p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_procurement_advisor" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.procurement.advisor</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="purchase.res_config_settings_view_form_purchase"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='purchase_setting_container']" position="after">
+                <block title="AI Procurement Advisor" name="procurement_advisor_setting_container">
+                    <setting id="procurement_advisor_llm" string="Own AI Provider"
+                             help="Run the Procurement Advisor chat on your own AI provider instead of the Odoo AI service (no Odoo AI credits needed). Leave the key empty to use Odoo AI.">
+                        <div class="content-group">
+                            <div class="row mt8">
+                                <label for="cp_procurement_llm_api_key" class="col-lg-3 o_light_label"/>
+                                <field name="cp_procurement_llm_api_key" password="True" placeholder="Paste your API key"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="cp_procurement_llm_base_url" class="col-lg-3 o_light_label"/>
+                                <field name="cp_procurement_llm_base_url"/>
+                            </div>
+                            <div class="row mt8">
+                                <label for="cp_procurement_llm_model" class="col-lg-3 o_light_label"/>
+                                <field name="cp_procurement_llm_model"/>
+                            </div>
+                            <div class="text-muted mt8">
+                                Free option: Google Gemini, key from aistudio.google.com (default URL and model).
+                                Other OpenAI-compatible providers work too: Groq (https://api.groq.com/openai/v1),
+                                OpenRouter (https://openrouter.ai/api/v1), OpenAI (https://api.openai.com/v1).
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

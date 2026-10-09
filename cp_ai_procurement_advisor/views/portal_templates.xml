@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vendor quote form. Never show the budget or target prices here. -->
+    <template id="portal_procurement_quote" name="Procurement Quote Form">
+        <t t-call="portal.frontend_layout">
+            <t t-set="no_footer" t-value="False"/>
+            <div class="container py-4">
+                <div class="mb-4">
+                    <h2 class="mb-1">Request for Quotation <span t-field="order.name"/></h2>
+                    <h4 class="text-muted" t-field="procurement_request.title"/>
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <strong>From:</strong> <span t-field="order.company_id.name"/>
+                        </div>
+                        <div class="col-md-4" t-if="procurement_request.deadline">
+                            <strong>Needed by:</strong> <span t-field="procurement_request.deadline"/>
+                        </div>
+                        <div class="col-md-4" t-if="procurement_request.delivery_location">
+                            <strong>Delivery:</strong> <span t-field="procurement_request.delivery_location"/>
+                        </div>
+                    </div>
+                    <p t-if="procurement_request.need_summary" class="mt-3 mb-0" t-field="procurement_request.need_summary"/>
+                </div>
+
+                <div t-if="success" class="alert alert-success" role="alert">
+                    Thank you, your quote was received.
+                    <t t-if="can_edit">You can still update it below until a decision is made.</t>
+                </div>
+                <div t-if="error == 'invalid'" class="alert alert-danger" role="alert">
+                    Some amounts are not valid numbers: please check prices, costs, lead time and warranty.
+                </div>
+                <div t-if="error == 'lead_time'" class="alert alert-danger" role="alert">
+                    Please enter your lead time in days.
+                </div>
+                <div t-if="error == 'file_size'" class="alert alert-danger" role="alert">
+                    The attached file is too large (10 MB maximum).
+                </div>
+                <div t-if="not can_edit" class="alert alert-info" role="alert">
+                    This request for quotation is closed: quotes can no longer be changed.
+                </div>
+
+                <form t-attf-action="/procurement/quote/#{order.id}/submit?access_token=#{access_token}"
+                      method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <fieldset t-att-disabled="not can_edit">
+                        <h4 class="mt-2">Items</h4>
+                        <p class="text-muted">
+                            Enter your unit price for each item (in <span t-field="order.currency_id.name"/>, excluding taxes),
+                            and tell us for each characteristic whether your offer meets it.
+                        </p>
+                        <t t-foreach="order.order_line.filtered('procurement_line_id')" t-as="po_line">
+                            <t t-set="spec_line" t-value="po_line.procurement_line_id"/>
+                            <div class="card mb-3">
+                                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <div>
+                                        <strong t-field="spec_line.name"/>
+                                        <span class="text-muted">
+                                            - <span t-out="po_line.product_qty" t-options="{'widget': 'float', 'decimal_precision': 'Product Unit'}"/>
+                                            <span t-field="spec_line.uom_id.name"/>
+                                        </span>
+                                    </div>
+                                    <div class="input-group" style="max-width: 260px;">
+                                        <span class="input-group-text">Unit price</span>
+                                        <input type="text" inputmode="decimal" class="form-control text-end"
+                                               t-att-name="'price_%s' % po_line.id"
+                                               t-att-value="po_line.price_unit or ''"
+                                               placeholder="0.00"/>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p t-if="spec_line.description" class="mb-2" t-field="spec_line.description"/>
+                                    <t t-set="answers" t-value="po_line.procurement_compliance_ids"/>
+                                    <div t-if="answers" class="table-responsive">
+                                        <t t-call="cp_ai_procurement_advisor.portal_procurement_compliance_table"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+
+                        <t t-set="answers" t-value="order.procurement_compliance_ids.filtered('requirement_id')"/>
+                        <t t-if="answers">
+                            <h4 class="mt-4">General requirements</h4>
+                            <div class="table-responsive">
+                                <t t-call="cp_ai_procurement_advisor.portal_procurement_compliance_table"/>
+                            </div>
+                        </t>
+
+                        <h4 class="mt-4">Delivery and conditions</h4>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label" for="delivery_cost">Delivery cost</label>
+                                <input type="text" inputmode="decimal" class="form-control" id="delivery_cost"
+                                       name="delivery_cost" t-att-value="order.delivery_cost or ''" placeholder="0.00"/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="installation_cost">Installation cost</label>
+                                <input type="text" inputmode="decimal" class="form-control" id="installation_cost"
+                                       name="installation_cost" t-att-value="order.installation_cost or ''" placeholder="0.00"/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="vendor_lead_days">Lead time (days) *</label>
+                                <input type="number" min="0" step="1" class="form-control" id="vendor_lead_days"
+                                       name="vendor_lead_days" required="required"
+                                       t-att-value="order.vendor_lead_days if order.quote_submitted else ''"/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="warranty_months">Warranty (months)</label>
+                                <input type="number" min="0" step="1" class="form-control" id="warranty_months"
+                                       name="warranty_months" t-att-value="order.warranty_months or ''"/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="partner_ref">Your quote reference</label>
+                                <input type="text" class="form-control" id="partner_ref" name="partner_ref"
+                                       t-att-value="order.partner_ref or ''"/>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" for="quote_file">Attach your quote (PDF, optional)</label>
+                                <input type="file" class="form-control" id="quote_file" name="quote_file"
+                                       accept="application/pdf,image/*" multiple="multiple"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="vendor_quote_notes">Notes</label>
+                                <textarea class="form-control" id="vendor_quote_notes" name="vendor_quote_notes" rows="3"
+                                          placeholder="Payment terms, validity of the offer, anything we should know..."
+                                          t-out="order.vendor_quote_notes or ''"/>
+                            </div>
+                        </div>
+
+                        <div class="mt-4" t-if="can_edit">
+                            <button type="submit" class="btn btn-primary">
+                                <t t-if="order.quote_submitted">Update my quote</t>
+                                <t t-else="">Submit my quote</t>
+                            </button>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+        </t>
+    </template>
+
+    <template id="portal_procurement_compliance_table" name="Procurement Quote: Specification Answers">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Characteristic</th>
+                    <th>Required</th>
+                    <th style="min-width: 180px;">Your offer</th>
+                    <th style="min-width: 200px;">Comment</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr t-foreach="answers" t-as="answer">
+                    <td>
+                        <t t-if="answer.attribute_id" t-out="answer.attribute_id.name"/>
+                        <t t-else="" t-out="answer.requirement_id.name"/>
+                        <span t-if="answer.mandatory" class="badge text-bg-secondary ms-1">Mandatory</span>
+                    </td>
+                    <td t-out="answer.required_value"/>
+                    <td>
+                        <select class="form-select form-select-sm" t-att-name="'compliance_%s' % answer.id">
+                            <option value="" t-att-selected="not answer.status">Select...</option>
+                            <option value="met" t-att-selected="answer.status == 'met'">Meets it</option>
+                            <option value="alternative" t-att-selected="answer.status == 'alternative'">Alternative offered</option>
+                            <option value="not_met" t-att-selected="answer.status == 'not_met'">Cannot meet</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm" maxlength="500"
+                               t-att-name="'compliance_comment_%s' % answer.id"
+                               t-att-value="answer.vendor_comment or ''"
+                               placeholder="e.g. what you offer instead"/>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </template>
+</odoo>

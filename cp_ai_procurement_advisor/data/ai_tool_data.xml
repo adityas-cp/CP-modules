@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tools of the Procurement Advisor agent. They run on the procurement request the chat is linked to. -->
+
+    <record id="ai_tool_procurement_save_context" model="ir.actions.server">
+        <field name="name">AI Tool: Procurement - Save Context</field>
+        <field name="ai_tool_name">procurement_save_context</field>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="model_id" ref="model_procurement_request"/>
+        <field name="code">
+ai['result'] = record._ai_tool_save_context(
+    title=title,
+    need_summary=need_summary,
+    product_category=product_category,
+    budget=budget,
+    deadline=deadline,
+    delivery_location=delivery_location,
+)
+        </field>
+        <field name="ai_tool_thinking_text">Saving the request details</field>
+        <field name="ai_tool_description">
+            Saves the general facts of the procurement request as soon as the user gives them.
+            Only pass the parameters you learned; omitted parameters are left unchanged.
+            Returns the full current state of the request.
+        </field>
+        <field name="ai_tool_schema">
+        {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "maxLength": 120, "description": "Short name of the need, e.g. 'Laptops for 25 new hires'."},
+                "need_summary": {"type": "string", "maxLength": 2000, "description": "What is bought, for whom, for which use and context, in a few sentences."},
+                "product_category": {"type": "string", "maxLength": 120, "description": "Product category name, e.g. 'IT hardware', 'Furniture', 'Workwear'."},
+                "budget": {"type": "number", "minimum": 0, "description": "Total budget in the company currency, taxes included."},
+                "deadline": {"type": "string", "maxLength": 10, "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "Date by which everything must be delivered, YYYY-MM-DD."},
+                "delivery_location": {"type": "string", "maxLength": 250, "description": "Where to deliver (site, address, floor, access constraints)."}
+            },
+            "required": []
+        }
+        </field>
+    </record>
+
+    <record id="ai_tool_procurement_set_items" model="ir.actions.server">
+        <field name="name">AI Tool: Procurement - Set Items</field>
+        <field name="ai_tool_name">procurement_set_items</field>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="model_id" ref="model_procurement_request"/>
+        <field name="code">
+ai['result'] = record._ai_tool_set_items(items)
+        </field>
+        <field name="ai_tool_thinking_text">Writing the item list</field>
+        <field name="ai_tool_description">
+            Replaces the whole item list of the procurement request: always send every item, not only the changed ones.
+            Each item carries its specification as attributes (name, required value, unit), specific to that kind of product.
+            Mark an attribute mandatory only when a vendor offer without it would be unacceptable.
+            Returns the full current state of the request, including the estimated cost against the budget.
+        </field>
+        <field name="ai_tool_schema">
+        {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "description": "Every item to buy.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "maxLength": 120, "description": "Item name, e.g. '14-inch business laptop'."},
+                            "quantity": {"type": "number", "minimum": 0, "description": "Quantity to buy."},
+                            "unit": {"type": "string", "maxLength": 30, "description": "Unit of measure, e.g. 'Units', 'm', 'kg', 'Hours'. Defaults to Units."},
+                            "target_unit_price": {"type": "number", "minimum": 0, "description": "Realistic market unit price in the company currency, used for the budget check only."},
+                            "description": {"type": "string", "maxLength": 1000, "description": "One or two sentences on the intended use."},
+                            "attributes": {
+                                "type": "array",
+                                "description": "Specification of the item.",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string", "maxLength": 80, "description": "Characteristic, e.g. 'RAM', 'Fabric', 'Seat height'."},
+                                        "value": {"type": "string", "maxLength": 250, "description": "Required value, e.g. '16', 'Cotton 200 g/m2', 'min. 45'."},
+                                        "unit": {"type": "string", "maxLength": 30, "description": "Unit of the value, e.g. 'GB', 'cm'."},
+                                        "mandatory": {"type": "boolean", "description": "False for nice-to-have characteristics."}
+                                    },
+                                    "required": ["name", "value"]
+                                }
+                            }
+                        },
+                        "required": ["name", "quantity", "attributes"]
+                    }
+                }
+            },
+            "required": ["items"]
+        }
+        </field>
+    </record>
+
+    <record id="ai_tool_procurement_set_requirements" model="ir.actions.server">
+        <field name="name">AI Tool: Procurement - Set General Requirements</field>
+        <field name="ai_tool_name">procurement_set_requirements</field>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="model_id" ref="model_procurement_request"/>
+        <field name="code">
+ai['result'] = record._ai_tool_set_requirements(requirements)
+        </field>
+        <field name="ai_tool_thinking_text">Saving the general requirements</field>
+        <field name="ai_tool_description">
+            Replaces the general requirements that apply to the whole order rather than to one item:
+            installation, certifications or compliance, packaging, after-sales service, payment terms...
+            Always send the complete list.
+        </field>
+        <field name="ai_tool_schema">
+        {
+            "type": "object",
+            "properties": {
+                "requirements": {
+                    "type": "array",
+                    "description": "Every general requirement.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "maxLength": 120, "description": "e.g. 'Installation and assembly on site'."},
+                            "description": {"type": "string", "maxLength": 1000, "description": "Details the vendor needs."},
+                            "mandatory": {"type": "boolean", "description": "False for nice-to-have requirements."}
+                        },
+                        "required": ["name"]
+                    }
+                }
+            },
+            "required": ["requirements"]
+        }
+        </field>
+    </record>
+
+    <record id="ai_tool_procurement_check_completeness" model="ir.actions.server">
+        <field name="name">AI Tool: Procurement - Check Completeness</field>
+        <field name="ai_tool_name">procurement_check_completeness</field>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="model_id" ref="model_procurement_request"/>
+        <field name="code">
+ai['result'] = record._ai_tool_check_completeness()
+        </field>
+        <field name="ai_tool_thinking_text">Checking what is missing</field>
+        <field name="ai_tool_description">
+            Returns the current state of the procurement request (it may have been edited by the user in the form),
+            the blocking gaps that prevent approving the specification, and the warnings (budget, delivery...).
+        </field>
+    </record>
+
+    <record id="ai_tool_procurement_mark_ready" model="ir.actions.server">
+        <field name="name">AI Tool: Procurement - Mark Ready for Review</field>
+        <field name="ai_tool_name">procurement_mark_ready</field>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="model_id" ref="model_procurement_request"/>
+        <field name="code">
+ai['result'] = record._ai_tool_mark_ready()
+        </field>
+        <field name="ai_tool_thinking_text">Sending the item list for review</field>
+        <field name="ai_tool_description">
+            Moves the request to review once the user confirmed the item list. Refused while blocking gaps remain:
+            in that case, ask the user about them.
+        </field>
+    </record>
+</odoo>
